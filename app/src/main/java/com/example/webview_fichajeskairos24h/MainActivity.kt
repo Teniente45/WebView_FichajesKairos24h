@@ -1,5 +1,6 @@
 package com.example.webview_fichajeskairos24h
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -15,6 +16,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) // Bloquea en horizontal
+
 
         val webView: WebView = findViewById(R.id.webView)
 
@@ -72,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Cargar la URL
-        val url = "https://setfichaje.kairos24h.es"
+        val url = "https://setfichaje.kairos24h.es/index.php?r=citaRedWeb/cppIndex&xEntidad=1003&cKiosko=TABLET1"
         webView.loadUrl(url)
     }
 }
