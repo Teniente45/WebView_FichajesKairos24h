@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Cargar la URL
-        val url = "https://www.youtube.com/results?search_query=world+of+warcraft"
+        val url = "https://setfichaje.kairos24h.es"
         webView.loadUrl(url)
     }
 }
