@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
@@ -22,6 +23,9 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
 
     private val PIN = "1234" // Establece el PIN de seguridad
+    private var backPressCount = 0 // Contador de veces que se presiona la tecla "Back"
+    private val backPressInterval: Long = 6000 // Intervalo de 2 segundos para contar los "Back presses"
+    private var lastBackPressTime: Long = 0 // Hora de la última vez que se presionó "Back"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +85,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Método para ocultar la barra de navegación
+    // Método para ocultar la barra de navegación completamente
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -93,20 +97,29 @@ class MainActivity : AppCompatActivity() {
                 )
     }
 
-    // Detectar cuando el usuario intenta interactuar con los botones de la barra de navegación
+    // Detectar cuando el usuario presiona la tecla de "atrás" en la barra de navegación
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_HOME || keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
-            // Si se presionan los botones de inicio o multitarea, mostrar el PIN
-            showPinDialog()
-            return true  // Evitar que se ejecute la acción predeterminada (salir o cambiar de app)
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            val currentTime = System.currentTimeMillis()
+
+            // Verificar si el tiempo entre el último "back press" y este es menor que el intervalo permitido
+            if (currentTime - lastBackPressTime <= backPressInterval) {
+                backPressCount++
+            } else {
+                backPressCount = 1 // Reiniciar el contador si el intervalo es mayor al permitido
+            }
+
+            lastBackPressTime = currentTime // Actualizar el tiempo de la última vez que se presionó "back"
+
+            // Si se presionan 5 veces seguidas, mostrar el cuadro de diálogo para el PIN
+            if (backPressCount >= 5) {
+                showPinDialog()
+                backPressCount = 0 // Resetear el contador después de mostrar el diálogo
+            }
+
+            return true // Evitar que se ejecute la acción predeterminada (salir o cambiar de app)
         }
         return super.onKeyDown(keyCode, event)
-    }
-
-    // Método para bloquear la app y pedir el PIN solo cuando se intenta salir
-    override fun onBackPressed() {
-        // Evitar que el back botón cierre la app directamente
-        showPinDialog()
     }
 
     // Método para mostrar el diálogo de PIN
@@ -115,26 +128,30 @@ class MainActivity : AppCompatActivity() {
         val pinInput = dialogView.findViewById<EditText>(R.id.pinInput)
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Ingrese el PIN")
+            .setTitle("Para salir introduzca PIN")
             .setView(dialogView)
             .setCancelable(false)  // Deshabilitar cancelación
             .setPositiveButton("Aceptar") { dialog, _ ->
                 val enteredPin = pinInput.text.toString()
                 if (enteredPin == PIN) {
-                    // Si el PIN es correcto, puedes salir
-                    super.onBackPressed()
+                    // Si el PIN es correcto, cerrar la app
+                    finishAffinity() // Cerrar todas las actividades de la app y salir
                 } else {
                     // Si el PIN es incorrecto, muestra un mensaje y no hacer nada
                     Toast.makeText(this, "PIN incorrecto", Toast.LENGTH_SHORT).show()
                 }
-                dialog.dismiss()
             }
             .setNegativeButton("Cancelar") { dialog, _ ->
-                // Evitar que cierre si el PIN es incorrecto
-                dialog.dismiss()
+                dialog.dismiss() // Cerrar el diálogo sin hacer nada
             }
             .create()
 
         dialog.show()
+    }
+
+    // Método para bloquear la app y pedir el PIN solo cuando se intenta salir
+    override fun onBackPressed() {
+        // Evitar que el back botón cierre la app directamente
+        showPinDialog()
     }
 }
