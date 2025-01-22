@@ -1,32 +1,36 @@
 package com.example.webview_fichajeskairos24h
 
 import android.annotation.SuppressLint
-import android.content.pm.ActivityInfo
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.webkit.*
+import android.webkit.ConsoleMessage
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
-    private var clickCount = 0
-    private val handler = Handler(Looper.getMainLooper())
-    private var resetTask: Runnable? = null
-    private val resetDelay = 10000L // 10 segundos
+
+    private val PIN = "1234" // Establece el PIN de seguridad
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) // Bloquea en horizontal
 
-        // Activa la inmersión total al iniciar
-        hideSystemUI()
+        // Bloquear en orientación horizontal
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        hideSystemUI() // Activa la inmersión total al iniciar
 
         val webView: WebView = findViewById(R.id.webView)
 
@@ -36,37 +40,12 @@ class MainActivity : AppCompatActivity() {
         webSettings.domStorageEnabled = true
         webSettings.cacheMode = WebSettings.LOAD_NO_CACHE
 
-        // Limpieza de caché y cookies antes de cargar la URL
+        // Limpiar la caché y evitar que se almacene
         webView.clearCache(true)
         webView.clearHistory()
         webView.clearFormData()
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
-
-        // Inyectar JavaScript para detectar clics en el botón "LIMPIAR"
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                webView.evaluateJavascript("""
-                    (function() {
-                        const button = document.querySelector('button[onclick*="LIMPIAR"]');
-                        if (button) {
-                            button.addEventListener('click', function() {
-                                Android.onButtonClick();
-                            });
-                        }
-                    })();
-                """.trimIndent(), null)
-            }
-
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                super.onReceivedError(view, request, error)
-                val url = request?.url.toString()
-                val errorMessage = error?.description.toString()
-                Log.e("WebViewError", "Error cargando URL: $url | Error: $errorMessage")
-                Toast.makeText(this@MainActivity, "Error al cargar la página: $errorMessage", Toast.LENGTH_LONG).show()
-            }
-        }
 
         // Configura WebChromeClient para depuración de la consola
         webView.webChromeClient = object : WebChromeClient() {
@@ -76,83 +55,86 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Añadir la interfaz JavaScript
-        webView.addJavascriptInterface(WebAppInterface(), "Android")
-
         // Cargar la URL
         val url = "https://setfichaje.kairos24h.es/index.php?r=citaRedWeb/cppIndex&xEntidad=1003&cKiosko=TABLET1"
         webView.loadUrl(url)
 
-        // Permitir que el usuario salga del modo inmersivo con un toque
-        webView.setOnClickListener {
-            showSystemUI()
+        enableDeviceAdmin() // Activar el Administrador de Dispositivo
+    }
+
+    // Método para activar el Administrador de Dispositivo
+    private fun enableDeviceAdmin() {
+        val deviceAdminComponent = ComponentName(this, DeviceAdminReceiver::class.java)
+        val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+        // Verificar si la aplicación tiene permisos de administrador
+        if (!devicePolicyManager.isAdminActive(deviceAdminComponent)) {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, deviceAdminComponent)
+            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Para habilitar el modo kiosco")
+            startActivityForResult(intent, 1) // Solicita los permisos
+        } else {
+            // Ya es administrador, activar el modo kiosco
+            Log.d("DeviceAdmin", "La aplicación ya tiene privilegios de administrador.")
+            devicePolicyManager.setLockTaskPackages(deviceAdminComponent, arrayOf(packageName))
+            startLockTask() // Iniciar el modo kiosco
         }
     }
 
+    // Método para ocultar la barra de navegación
     private fun hideSystemUI() {
-        // Android 11 (API 30) y superior
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            window.insetsController?.let { controller ->
-                // Ocultar barras de sistema (barra de estado y navegación)
-                controller.hide(WindowInsets.Type.systemBars())
-                // Deshabilitar gestos de navegación para que no aparezca la barra
-                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        } else {
-            // Para versiones anteriores a Android 11
-            window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            or View.SYSTEM_UI_FLAG_FULLSCREEN
-                            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    )
-        }
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                )
     }
 
-    private fun showSystemUI() {
-        // Mostrar las barras del sistema si se necesitan
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            window.insetsController?.show(WindowInsets.Type.systemBars())
-        } else {
-            // Para versiones anteriores a Android 11
-            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+    // Detectar cuando el usuario intenta interactuar con los botones de la barra de navegación
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_HOME || keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
+            // Si se presionan los botones de inicio o multitarea, mostrar el PIN
+            showPinDialog()
+            return true  // Evitar que se ejecute la acción predeterminada (salir o cambiar de app)
         }
+        return super.onKeyDown(keyCode, event)
     }
 
-    // Interfaz para recibir eventos desde JavaScript
-    inner class WebAppInterface {
-        @JavascriptInterface
-        fun onButtonClick() {
-            runOnUiThread {
-                clickCount++
+    // Método para bloquear la app y pedir el PIN solo cuando se intenta salir
+    override fun onBackPressed() {
+        // Evitar que el back botón cierre la app directamente
+        showPinDialog()
+    }
 
-                if (resetTask != null) {
-                    handler.removeCallbacks(resetTask!!)
-                }
+    // Método para mostrar el diálogo de PIN
+    private fun showPinDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_pin, null)
+        val pinInput = dialogView.findViewById<EditText>(R.id.pinInput)
 
-                if (clickCount >= 6) {
-                    showSystemUI()
-                    resetTask = Runnable {
-                        hideSystemUI()
-                        clickCount = 0
-                    }
-                    handler.postDelayed(resetTask!!, resetDelay)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Ingrese el PIN")
+            .setView(dialogView)
+            .setCancelable(false)  // Deshabilitar cancelación
+            .setPositiveButton("Aceptar") { dialog, _ ->
+                val enteredPin = pinInput.text.toString()
+                if (enteredPin == PIN) {
+                    // Si el PIN es correcto, puedes salir
+                    super.onBackPressed()
                 } else {
-                    resetTask = Runnable {
-                        clickCount = 0
-                    }
-                    handler.postDelayed(resetTask!!, resetDelay)
+                    // Si el PIN es incorrecto, muestra un mensaje y no hacer nada
+                    Toast.makeText(this, "PIN incorrecto", Toast.LENGTH_SHORT).show()
                 }
+                dialog.dismiss()
             }
-        }
-    }
+            .setNegativeButton("Cancelar") { dialog, _ ->
+                // Evitar que cierre si el PIN es incorrecto
+                dialog.dismiss()
+            }
+            .create()
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus) {
-            hideSystemUI()  // Asegurarse de que las barras sigan ocultas si la aplicación pierde foco
-        }
+        dialog.show()
     }
 }
