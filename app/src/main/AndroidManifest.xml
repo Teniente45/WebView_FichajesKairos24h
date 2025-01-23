@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.webview_fichajeskairos24h">
 
+    <!-- Permisos requeridos -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -9,7 +16,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WebView_FichajesKairos24h">
 
-        <!-- DeviceAdminReceiver -->
+        <!-- DeviceAdminReceiver para administrar el modo kiosko -->
         <receiver
             android:name=".AdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
@@ -22,13 +29,20 @@
             </intent-filter>
         </receiver>
 
-        <!-- KioskLauncherActivity: se registra como HOME + DEFAULT -->
+        <!-- KioskLauncherActivity: se registra como el launcher principal -->
         <activity
             android:name=".KioskLauncherActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.WebView_FichajesKairos24h">
 
+            <!-- Launcher principal de la aplicación -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Opción de ser el HOME predeterminado -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -36,7 +50,15 @@
             </intent-filter>
         </activity>
 
-        <!-- (Si tenías una MainActivity antigua, quítale el LAUNCHER) -->
+        <!-- BootBroadcastReceiver: opcional para reiniciar automáticamente -->
+        <receiver
+            android:name=".BootBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

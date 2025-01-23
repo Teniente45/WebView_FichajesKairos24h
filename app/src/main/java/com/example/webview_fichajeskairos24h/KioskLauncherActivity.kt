@@ -6,6 +6,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.os.Build
@@ -30,7 +31,6 @@ class KioskLauncherActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Usa el mismo layout que tenías antes en MainActivity
         setContentView(R.layout.activity_main)
 
         // Bloquea la pantalla en horizontal
@@ -57,28 +57,33 @@ class KioskLauncherActivity : AppCompatActivity() {
         webView.clearCache(true)
         webView.clearHistory()
         webView.clearFormData()
-        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().removeAllCookies {}
         CookieManager.getInstance().flush()
 
-        // WebViewClient
+        // Configura el WebViewClient (corrige la falta de llaves aquí)
         webView.webViewClient = object : WebViewClient() {
+
+            // Cuando se finaliza la carga de una página
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Inyección de JS para tu botón "LIMPIAR"
-                webView.evaluateJavascript(
-                    """
-                        (function() {
-                            const button = document.querySelector('button[onclick*="LIMPIAR"]');
-                            if (button) {
-                                button.addEventListener('click', function() {
-                                    Android.onButtonClick();
-                                });
-                            }
-                        })();
-                    """.trimIndent(), null
-                )
+
+                // Ejemplo: si la URL contiene "kairos24h.es", comprobamos si es válida
+                if (url?.contains("kairos24h.es") == true) {
+                    if (URLUtil.isValidUrl(url)) {
+                        // OJO: llamar de nuevo a loadUrl(url) dentro de onPageFinished
+                        // podría causar recargas infinitas si no se controla
+                        Log.d("KioskLauncherActivity", "URL final kairos y válida: $url")
+                    } else {
+                        Toast.makeText(
+                            this@KioskLauncherActivity,
+                            "URL no válida",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             }
 
+            // Manejo de errores al cargar la URL
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
@@ -88,6 +93,7 @@ class KioskLauncherActivity : AppCompatActivity() {
                 val urlError = request?.url.toString()
                 val errorMessage = error?.description.toString()
                 Log.e("WebViewError", "Error cargando URL: $urlError | Error: $errorMessage")
+
                 Toast.makeText(
                     this@KioskLauncherActivity,
                     "Error al cargar la página: $errorMessage",
@@ -96,7 +102,7 @@ class KioskLauncherActivity : AppCompatActivity() {
             }
         }
 
-        // WebChromeClient (para logs de consola)
+        // Inyectar JavaScript para “LIMPIAR” u otros eventos
         webView.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 consoleMessage?.message()?.let { Log.d("WebViewConsole", it) }
@@ -112,55 +118,47 @@ class KioskLauncherActivity : AppCompatActivity() {
         webView.loadUrl(url)
     }
 
-    /**
-     * Verifica que somos Device Owner e inicia LockTask (modo kiosko real).
-     */
     private fun enableKioskMode() {
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val adminName = ComponentName(this, AdminReceiver::class.java)
 
-        if (dpm.isDeviceOwnerApp(packageName)) {
-            dpm.setLockTaskPackages(adminName, arrayOf(packageName))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                dpm.setLockTaskFeatures(
-                    adminName,
-                    DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
-                            DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
-                )
+        try {
+            if (dpm.isDeviceOwnerApp(packageName)) {
+                dpm.setLockTaskPackages(adminName, arrayOf(packageName))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    dpm.setLockTaskFeatures(
+                        adminName,
+                        DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+                                DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
+                    )
+                }
+                startLockTask()
+            } else {
+                Log.e("KioskLauncherActivity", "La app NO es Device Owner.")
+                Toast.makeText(this, "No somos Device Owner.", Toast.LENGTH_LONG).show()
             }
-            startLockTask()
-        } else {
-            Log.e("KioskLauncherActivity", "La app NO es Device Owner.")
-            Toast.makeText(this, "No somos Device Owner.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Log.e("KioskLauncherActivity", "Error al habilitar modo kiosko: ${e.message}")
         }
     }
 
-    /**
-     * Fija esta Activity como la que actúa de "HOME" y "DEFAULT" launcher.
-     */
     private fun setAsDefaultLauncher() {
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(this, AdminReceiver::class.java)
 
         if (dpm.isDeviceOwnerApp(packageName)) {
-            // Limpia las preferencias persistentes anteriores
             dpm.clearPackagePersistentPreferredActivities(admin, packageName)
 
-            // Filtra intent MAIN con categorías HOME y DEFAULT
-            val filter = IntentFilter(IntentFilter.ACTION_MAIN).apply {
-                addCategory(IntentFilter.CATEGORY_HOME)
-                addCategory(IntentFilter.CATEGORY_DEFAULT)
+            val filter = IntentFilter(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addCategory(Intent.CATEGORY_DEFAULT)
             }
 
-            // Registra este componente como preferido
             val component = ComponentName(packageName, this::class.java.name)
             dpm.addPersistentPreferredActivity(admin, filter, component)
         }
     }
 
-    /**
-     * Oculta barras de estado / navegación (modo inmersivo).
-     */
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let { controller ->
@@ -181,9 +179,6 @@ class KioskLauncherActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Detiene el LockTask y sale del modo kiosko.
-     */
     private fun disableKioskMode() {
         try {
             stopLockTask()
@@ -193,9 +188,6 @@ class KioskLauncherActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Detecta long press de 7s en la mitad derecha y pide PIN para salir.
-     */
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         if (ev == null) return super.dispatchTouchEvent(ev)
 
@@ -213,7 +205,6 @@ class KioskLauncherActivity : AppCompatActivity() {
                 if (isLongPress) {
                     val pressDuration = System.currentTimeMillis() - longPressStartTime
                     if (pressDuration >= longPressThreshold) {
-                        // Muestra diálogo de PIN
                         showPinDialog()
                     }
                 }
@@ -223,9 +214,6 @@ class KioskLauncherActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    /**
-     * Muestra un AlertDialog para introducir el PIN.
-     */
     private fun showPinDialog() {
         val editText = EditText(this)
         editText.hint = "Introduce PIN"
@@ -248,17 +236,10 @@ class KioskLauncherActivity : AppCompatActivity() {
             .show()
     }
 
-    /**
-     * Valida el PIN. Aquí tu clave de salida.
-     */
     private fun checkPin(pin: String): Boolean {
-        // Por ejemplo, el PIN es "3300"
         return pin == "3300"
     }
 
-    /**
-     * Interfaz JS para el botón "LIMPIAR" o eventos de la web
-     */
     inner class WebAppInterface {
         @JavascriptInterface
         fun onButtonClick() {
