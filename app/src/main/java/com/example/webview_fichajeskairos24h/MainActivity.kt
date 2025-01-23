@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.KeyEvent
+import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -23,7 +24,7 @@ class MainActivity : AppCompatActivity() {
 
     private val PIN = "1234" // Establece el PIN de seguridad
     private var backPressCount = 0 // Contador de veces que se presiona la tecla "Back"
-    private val backPressInterval: Long = 6000 // Intervalo de 2 segundos para contar los "Back presses"
+    private val backPressInterval: Long = 6000 // Intervalo de 6 segundos para contar los "Back presses"
     private var lastBackPressTime: Long = 0 // Hora de la última vez que se presionó "Back"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -62,6 +63,8 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl(url)
 
         enableDeviceAdmin() // Activar el Administrador de Dispositivo
+
+        hideSystemUI() // Ocultar barra de navegación al iniciar la actividad
     }
 
     // Método para activar el Administrador de Dispositivo
@@ -136,9 +139,31 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    // Asegurarse de que el modo kiosco se reinicie cada vez que la app entre en primer plano
+    // Método para ocultar la barra de navegación y la barra de estado
+    private fun hideSystemUI() {
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                )
+    }
+
+    // Método para restaurar la UI si es necesario (no lo llamamos explícitamente aquí)
+    private fun showSystemUI() {
+        window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                )
+    }
+
+    // Asegurarse de que el modo kiosco y el modo inmersivo se reinicien cada vez que la app entre en primer plano
     override fun onResume() {
         super.onResume()
         startLockTask()  // Activar el modo kiosco automáticamente
+        hideSystemUI() // Ocultar la barra de navegación al volver a la app
     }
 }
