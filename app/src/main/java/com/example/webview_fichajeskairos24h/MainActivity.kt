@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.KeyEvent
-import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -34,7 +33,6 @@ class MainActivity : AppCompatActivity() {
 
         // Bloquear en orientación horizontal
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        hideSystemUI() // Activa la inmersión total al iniciar
 
         val webView: WebView = findViewById(R.id.webView)
 
@@ -85,19 +83,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Método para ocultar la barra de navegación completamente
-    private fun hideSystemUI() {
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                )
-    }
-
-    // Detectar cuando el usuario presiona la tecla de "atrás" en la barra de navegación
+    // Detectar cuando el usuario presiona la tecla de "atrás"
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             val currentTime = System.currentTimeMillis()
@@ -134,10 +120,11 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Aceptar") { dialog, _ ->
                 val enteredPin = pinInput.text.toString()
                 if (enteredPin == PIN) {
-                    // Si el PIN es correcto, cerrar la app
+                    // Si el PIN es correcto, desactivar el modo kiosco y salir de la app
+                    stopLockTask()  // Desactivar el modo kiosco
                     finishAffinity() // Cerrar todas las actividades de la app y salir
                 } else {
-                    // Si el PIN es incorrecto, muestra un mensaje y no hacer nada
+                    // Si el PIN es incorrecto, muestra un mensaje y no hace nada
                     Toast.makeText(this, "PIN incorrecto", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -149,9 +136,9 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    // Método para bloquear la app y pedir el PIN solo cuando se intenta salir
-    override fun onBackPressed() {
-        // Evitar que el back botón cierre la app directamente
-        showPinDialog()
+    // Asegurarse de que el modo kiosco se reinicie cada vez que la app entre en primer plano
+    override fun onResume() {
+        super.onResume()
+        startLockTask()  // Activar el modo kiosco automáticamente
     }
 }
