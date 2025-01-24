@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+
 
     <application
         android:allowBackup="true"
@@ -35,30 +35,16 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.WebView_FichajesKairos24h">
-
-            <!-- Launcher principal de la aplicación -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Opción de ser el HOME predeterminado -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <!-- BootBroadcastReceiver: opcional para reiniciar automáticamente -->
-        <receiver
-            android:name=".BootBroadcastReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
     </application>
 </manifest>

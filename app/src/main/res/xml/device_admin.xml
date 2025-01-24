@@ -1,7 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <device-admin>
     <uses-policies>
         <force-lock />
-        <reset-password />
         <wipe-data />
+        <reset-password />
+        <set-global-proxy />
+        <disable-camera />
+        <!-- Puedes agregar más políticas según lo que necesites -->
     </uses-policies>
 </device-admin>
