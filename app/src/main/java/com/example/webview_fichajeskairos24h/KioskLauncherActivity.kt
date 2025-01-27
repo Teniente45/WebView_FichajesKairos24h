@@ -96,6 +96,7 @@ class KioskLauncherActivity : AppCompatActivity() {
                     )
                 }
                 startLockTask()
+                isKioskModeEnabled = true
                 Toast.makeText(this, "Modo kiosko activado. App anclada.", Toast.LENGTH_SHORT).show()
             } else {
                 Log.e("KioskLauncherActivity", "La app NO es Device Owner.")
@@ -103,6 +104,16 @@ class KioskLauncherActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e("KioskLauncherActivity", "Error al habilitar modo kiosko: ${e.message}")
+        }
+    }
+
+    private fun disableKioskMode() {
+        try {
+            stopLockTask()
+            isKioskModeEnabled = false
+            Toast.makeText(this, "Modo kiosko desactivado. Navegación habilitada.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("KioskLauncherActivity", "Error al detener LockTask: ${e.message}")
         }
     }
 
@@ -137,15 +148,6 @@ class KioskLauncherActivity : AppCompatActivity() {
                             or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                             or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     )
-        }
-    }
-
-    private fun disableKioskMode() {
-        try {
-            stopLockTask()
-            Toast.makeText(this, "Modo kiosko desactivado. Navegación habilitada.", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e("KioskLauncherActivity", "Error al detener LockTask: ${e.message}")
         }
     }
 
@@ -229,10 +231,14 @@ class KioskLauncherActivity : AppCompatActivity() {
         val admin = ComponentName(this, AdminReceiver::class.java)
 
         if (dpm.isDeviceOwnerApp(packageName)) {
-            dpm.clearPackagePersistentPreferredActivities(admin, packageName)
-            Toast.makeText(this, "Lanzador predeterminado eliminado", Toast.LENGTH_SHORT).show()
+            try {
+                dpm.clearPackagePersistentPreferredActivities(admin, packageName)
+                Toast.makeText(this, "Lanzador predeterminado eliminado", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("KioskLauncherActivity", "Error al limpiar el lanzador predeterminado: ${e.message}")
+            }
         } else {
-            Log.e("KioskLauncherActivity", "No se pudo eliminar la configuración de lanzador.")
+            Log.e("KioskLauncherActivity", "No somos Device Owner, no se puede eliminar el lanzador.")
         }
     }
 
@@ -245,7 +251,30 @@ class KioskLauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        enableKioskMode()
+        if (!isKioskModeEnabled) {
+            enableKioskMode()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            if (isKioskModeEnabled) {
+                enableKioskMode()
+            }
+        } catch (e: Exception) {
+            Log.e("KioskLauncherActivity", "Error en onPause: ${e.message}")
+        }
+    }
+
+    // Evitar el botón "Back" si el modo kiosko está activado
+    override fun onBackPressed() {
+        if (isKioskModeEnabled) {
+            // No hacer nada, se bloquea el back
+            Toast.makeText(this, "El botón Back está desactivado en modo kiosko", Toast.LENGTH_SHORT).show()
+        } else {
+            super.onBackPressed() // Permitir el comportamiento normal del botón Back
+        }
     }
 
     // La interfaz WebAppInterface que interactúa con Javascript
