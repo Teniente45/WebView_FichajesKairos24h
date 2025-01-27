@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION")
-
 package com.example.webview_fichajeskairos24h
 
 import android.annotation.SuppressLint
@@ -106,8 +104,7 @@ internal class KioskLauncherActivity : AppCompatActivity() {
         )
 
         // Cargar la URL de la página inicial
-        val url = "https://setfichaje.kairos24h.es/index.php?r=citaRedWeb/cppIndex&xEntidad=1003&cKiosko=TABLET1"
-        webView.loadUrl(url)
+        webView.loadUrl(WebViewURL.LOGIN_URL)
     }
 
     // Función para habilitar el modo kiosko
@@ -315,5 +312,3 @@ class WebAppInterface(private val context: Context) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 }
-
-
