@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
@@ -24,6 +25,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 
 internal class KioskLauncherActivity : AppCompatActivity() {
@@ -37,6 +39,9 @@ internal class KioskLauncherActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        BootReceiver.enableReceiver(this)
+
         setContentView(R.layout.activity_main)
 
         // Habilitar el BootReceiver para recibir BOOT_COMPLETED
@@ -66,7 +71,7 @@ internal class KioskLauncherActivity : AppCompatActivity() {
         // Deshabilitar caché para asegurar que la página siempre se cargue desde la red
         webSettings.cacheMode = WebSettings.LOAD_NO_CACHE
 
-// Configuración del cliente WebViewClient para manejar eventos de página y errores
+        // Configuración del cliente WebViewClient para manejar eventos de página y errores
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
@@ -90,36 +95,39 @@ internal class KioskLauncherActivity : AppCompatActivity() {
         }
 
         // Añadir la interfaz JavaScript para poder interactuar con la app desde el WebView
-        webView.addJavascriptInterface(
-            WebAppInterface(this), "Android"
-        )
+        webView.addJavascriptInterface(WebAppInterface(this), "Android")
 
         // Cargar la URL de la página inicial
         webView.loadUrl(WebViewURL.LOGIN_URL)
     }
 
     // Función para habilitar el modo kiosko
-    @SuppressLint("ObsoleteSdkInt")
     private fun enableKioskMode() {
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val adminName = ComponentName(this, AdminReceiver::class.java)
 
         try {
             if (dpm.isDeviceOwnerApp(packageName)) {
+                // Asignar la app como la única habilitada para el modo kiosko
                 dpm.setLockTaskPackages(adminName, arrayOf(packageName))
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    dpm.setLockTaskFeatures(
-                        adminName,
-                        DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
-                                DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
-                    )
-                }
-                startLockTask()
 
-                // Desactiva el botón Home en Android 9+
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    dpm.setLockTaskFeatures(adminName, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
+                // Solo habilitar setLockTaskFeatures si es compatible con la versión
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    try {
+                        // Intentar habilitar características avanzadas de LockTask si es posible
+                        dpm.setLockTaskFeatures(
+                            adminName,
+                            DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
+                                    DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
+                        )
+                    } catch (e: NoSuchMethodError) {
+                        // Método no disponible en versiones antiguas, continuar sin él
+                        Log.e("KioskLauncherActivity", "Método setLockTaskFeatures no disponible en esta versión.")
+                    }
                 }
+
+                // Iniciar el lock task para bloquear la pantalla
+                startLockTask()
 
                 isKioskModeEnabled = true
             } else {
@@ -141,7 +149,6 @@ internal class KioskLauncherActivity : AppCompatActivity() {
     }
 
     // Función para ocultar las barras del sistema y lograr pantalla completa
-    @SuppressLint("ObsoleteSdkInt")
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val controller = window.insetsController
@@ -149,6 +156,12 @@ internal class KioskLauncherActivity : AppCompatActivity() {
                 it.hide(WindowInsets.Type.systemBars())
                 it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
+        } else {
+            // Para versiones anteriores a Android R (SDK 30)
+            window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         }
     }
 
@@ -193,7 +206,6 @@ internal class KioskLauncherActivity : AppCompatActivity() {
         }
         return super.dispatchTouchEvent(ev)
     }
-
     // Muestra un diálogo para salir del modo kiosko ingresando un PIN
     private fun showPinDialog() {
         val editText = EditText(this)
@@ -259,3 +271,4 @@ class WebAppInterface(private val context: Context) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 }
+
