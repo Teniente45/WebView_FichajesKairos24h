@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.webview_fichajeskairos24h"
-        minSdk = 30
+        minSdk = 27
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
