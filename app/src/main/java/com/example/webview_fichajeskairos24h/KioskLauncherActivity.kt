@@ -7,7 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +23,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 
 internal class KioskLauncherActivity : AppCompatActivity() {
@@ -46,8 +46,10 @@ internal class KioskLauncherActivity : AppCompatActivity() {
             PackageManager.DONT_KILL_APP
         )
 
+        /*
         // Configuración de la orientación de la pantalla como horizontal
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+         */
 
         // Ocultar la barra de navegación y otros elementos del sistema para pantalla completa
         hideSystemUI()
@@ -99,6 +101,7 @@ internal class KioskLauncherActivity : AppCompatActivity() {
     }
 
     // Función para habilitar el modo kiosko
+    @RequiresApi(Build.VERSION_CODES.P)
     @SuppressLint("ObsoleteSdkInt")
     private fun enableKioskMode() {
         val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
