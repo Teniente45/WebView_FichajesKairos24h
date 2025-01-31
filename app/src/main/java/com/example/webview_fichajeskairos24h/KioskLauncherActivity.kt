@@ -17,7 +17,9 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
 import android.webkit.URLUtil
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -51,8 +53,10 @@ internal class KioskLauncherActivity : AppCompatActivity() {
             PackageManager.DONT_KILL_APP
         )
 
+        /*
         // Configuración de la orientación de la pantalla como horizontal
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+         */
 
         // Ocultar la barra de navegación y otros elementos del sistema para pantalla completa
         hideSystemUI()
@@ -70,6 +74,8 @@ internal class KioskLauncherActivity : AppCompatActivity() {
         webSettings.domStorageEnabled = true
         // Deshabilitar caché para asegurar que la página siempre se cargue desde la red
         webSettings.cacheMode = WebSettings.LOAD_NO_CACHE
+        // ✅ Habilitar reproducción de audio sin interacción del usuario
+        webSettings.mediaPlaybackRequiresUserGesture = false
 
         // Configuración del cliente WebViewClient para manejar eventos de página y errores
         webView.webViewClient = object : WebViewClient() {
@@ -80,19 +86,15 @@ internal class KioskLauncherActivity : AppCompatActivity() {
                     Log.d("KioskLauncherActivity", "URL final kairos y válida: $url")
                 }
             }
+        }
 
-            // Manejo de errores al cargar recursos en el WebView
-            override fun onReceivedError(
-                view: WebView,
-                request: WebResourceRequest,
-                error: WebResourceError
-            ) {
-                super.onReceivedError(view, request, error)
-                val urlError = request.url.toString()
-                val errorMessage = error.description.toString()
-                Log.e("WebViewError", "Error cargando URL: $urlError | Error: $errorMessage")
+        // ✅ Agregar un WebChromeClient para manejar permisos
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                request?.grant(request.resources) // ✅ Conceder permisos automáticamente
             }
         }
+
 
         // Añadir la interfaz JavaScript para poder interactuar con la app desde el WebView
         webView.addJavascriptInterface(WebAppInterface(this), "Android")
@@ -111,19 +113,19 @@ internal class KioskLauncherActivity : AppCompatActivity() {
                 // Asignar la app como la única habilitada para el modo kiosko
                 dpm.setLockTaskPackages(adminName, arrayOf(packageName))
 
-                // Solo habilitar setLockTaskFeatures si es compatible con la versión
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // ✅ Solo llamar a setLockTaskFeatures si la versión es API 28 o superior
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     try {
-                        // Intentar habilitar características avanzadas de LockTask si es posible
                         dpm.setLockTaskFeatures(
                             adminName,
                             DevicePolicyManager.LOCK_TASK_FEATURE_HOME or
                                     DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD
                         )
-                    } catch (e: NoSuchMethodError) {
-                        // Método no disponible en versiones antiguas, continuar sin él
-                        Log.e("KioskLauncherActivity", "Método setLockTaskFeatures no disponible en esta versión.")
+                    } catch (e: Exception) {
+                        Log.e("KioskLauncherActivity", "Error al configurar LockTaskFeatures: ${e.message}")
                     }
+                } else {
+                    Log.d("KioskLauncherActivity", "Dispositivo con API 27 o menor, omitiendo setLockTaskFeatures.")
                 }
 
                 // Iniciar el lock task para bloquear la pantalla
@@ -137,6 +139,7 @@ internal class KioskLauncherActivity : AppCompatActivity() {
             Log.e("KioskLauncherActivity", "Error al habilitar modo kiosko: ${e.message}")
         }
     }
+
 
     // Función para deshabilitar el modo kiosko
     private fun disableKioskMode() {
