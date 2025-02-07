@@ -6,10 +6,11 @@ object WebViewURL {
 
     // Partes ENTIDAD
     const val RUTA = "citaRedWeb/cppIndex"
+    const val PRUEBA = "1000"
     const val COMPLIANCE = "1002"
     const val BERLIN = "1003"
     const val RAFA = "1004"
-    var ENTIDAD = RAFA // Puedes cambiarlo dinámicamente si lo necesitas
+    var ENTIDAD = PRUEBA // Puedes cambiarlo dinámicamente si lo necesitas
 
     // Partes KIOSKO
     const val N_TABLET = "1"
